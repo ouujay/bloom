@@ -53,6 +53,7 @@ export default function Donate() {
   const [paymentStep, setPaymentStep] = useState('form'); // 'form' | 'transfer' | 'polling' | 'timeout'
   const [paymentDetails, setPaymentDetails] = useState(null);
   const [pollingProgress, setPollingProgress] = useState(0);
+  const [lastDonationAmount, setLastDonationAmount] = useState(0);
   const pollingRef = useRef(false);
 
   useEffect(() => {
@@ -140,6 +141,8 @@ export default function Donate() {
     pollingRef.current = false;
 
     if (result.confirmed) {
+      // Save the amount before resetting
+      setLastDonationAmount(paymentDetails.amount);
       setShowSuccess(true);
       setPaymentStep('form');
       setPaymentDetails(null);
@@ -217,7 +220,7 @@ export default function Donate() {
           </p>
           <div className="bg-bloom-50 rounded-2xl p-4 mb-6">
             <p className="text-sm text-dark-600 mb-2">Amount:</p>
-            <p className="text-2xl font-bold text-bloom-600">₦{selectedAmount.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-bloom-600">₦{lastDonationAmount.toLocaleString()}</p>
           </div>
           <p className="text-sm text-dark-500 mb-6">
             Please make sure to transfer the exact amount to our bank account. We will confirm your donation within 24 hours.

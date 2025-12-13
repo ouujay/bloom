@@ -4,8 +4,13 @@ Django settings for mamalert project.
 
 from pathlib import Path
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = "django-insecure-x16l(xy6r)11w-h8_4(k4m^1uo8^*v38)w61tb2#3hiq5kuy8+"
 
@@ -37,6 +42,8 @@ INSTALLED_APPS = [
     "apps.tokens",
     "apps.withdrawals",
     "apps.payments",
+    "apps.blockchain_api",  # Developer A - Blockchain integration
+    "apps.sms_api",         # Developer A - SMS integration
 ]
 
 AUTH_USER_MODEL = 'users.User'

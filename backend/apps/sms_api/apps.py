@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class SmsApiConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'apps.sms_api'
+    verbose_name = "SMS API (Africa's Talking)"

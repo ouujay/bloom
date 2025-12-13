@@ -3,6 +3,9 @@ from django.utils import timezone
 from django.db import transaction
 from django.db.models import Sum
 from .models import DonationPool, Donation, TokenTransaction, WithdrawalRequest
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TokenService:
@@ -126,6 +129,42 @@ class DonationService:
         pool = DonationPool.get_pool()
         pool.pool_balance += donation.amount_naira
         pool.save()
+
+        # Automatically record on blockchain
+        try:
+            import blockchain
+            from apps.blockchain_api.models import Donation as BlockchainDonation
+
+            # Check if already recorded
+            already_recorded = BlockchainDonation.objects.filter(
+                paystack_reference=donation.payment_reference,
+                blockchain_recorded=True
+            ).exists()
+
+            if not already_recorded:
+                logger.info(f"Recording donation {donation.payment_reference} on blockchain...")
+                blockchain_result = blockchain.record_deposit(
+                    amount_naira=float(donation.amount_naira),
+                    reference=donation.payment_reference,
+                    donor_email=donation.donor_email or 'anonymous@bloom.com'
+                )
+
+                if blockchain_result.get('success'):
+                    # Save blockchain record
+                    BlockchainDonation.objects.create(
+                        donor_email=donation.donor_email or 'anonymous@bloom.com',
+                        amount_naira=donation.amount_naira,
+                        paystack_reference=donation.payment_reference,
+                        blockchain_tx_hash=blockchain_result['signature'],
+                        blockchain_recorded=True,
+                        payment_status='SUCCESS'
+                    )
+                    logger.info(f"✅ Donation recorded on blockchain: {blockchain_result['signature']}")
+                else:
+                    logger.error(f"❌ Blockchain recording failed: {blockchain_result.get('error')}")
+        except Exception as e:
+            # Don't fail the confirmation if blockchain recording fails
+            logger.error(f"❌ Error recording on blockchain: {e}")
 
         return donation, True
 

@@ -41,6 +41,7 @@ class Donation(models.Model):
     amount_naira = models.DecimalField(max_digits=12, decimal_places=2)
     payment_reference = models.CharField(max_length=100, blank=True)
     payment_method = models.CharField(max_length=50, default='bank_transfer')
+    alatpay_transaction_id = models.CharField(max_length=255, blank=True, help_text='ALATPay transaction ID for verification')
 
     STATUS_CHOICES = [
         ('pending', 'Pending'),

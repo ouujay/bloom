@@ -52,7 +52,7 @@ def initiate_payment(request):
         payment_method='alatpay',
     )
 
-    # Create payment with ALATPay
+    # Create payment with ALATPay (generates virtual account)
     email = data.get('donor_email') or 'donor@bloom.ng'
     result = alatpay_service.create_payment(
         amount=amount,
@@ -61,26 +61,33 @@ def initiate_payment(request):
         metadata={
             'donation_id': str(donation.id),
             'donor_name': data.get('donor_name', ''),
+            'phone': data.get('donor_phone', ''),
         }
     )
 
     if not result['success']:
         # Still return the donation for manual verification
+        logger.warning(f'ALATPay failed: {result.get("error")}')
         return Response({
             'success': True,
-            'message': 'Donation recorded. Please make a bank transfer.',
+            'message': 'Donation recorded. ALATPay unavailable, please contact support.',
             'data': {
                 'donation_id': str(donation.id),
                 'reference': reference,
                 'amount': float(amount),
-                'bank_name': 'GTBank',  # Fallback bank details
-                'account_number': '0123456789',
+                'bank_name': 'Please contact support',
+                'account_number': 'N/A',
                 'account_name': 'Bloom Foundation',
             }
         }, status=status.HTTP_201_CREATED)
 
-    # Return payment details from ALATPay
-    payment_data = result.get('data', {}).get('data', {})
+    # Store ALATPay transaction ID in donation
+    payment_data = result.get('data', {})
+    transaction_id = payment_data.get('transactionId')
+
+    if transaction_id:
+        donation.alatpay_transaction_id = transaction_id
+        donation.save()
 
     return Response({
         'success': True,
@@ -88,7 +95,6 @@ def initiate_payment(request):
             'donation_id': str(donation.id),
             'reference': reference,
             'amount': float(amount),
-            'payment_url': payment_data.get('paymentUrl'),
             'bank_name': payment_data.get('bankName', 'Wema Bank'),
             'account_number': payment_data.get('accountNumber'),
             'account_name': payment_data.get('accountName', 'Bloom Foundation'),
@@ -125,38 +131,51 @@ def check_payment_status(request, reference):
             'message': 'Donation not found'
         }, status=status.HTTP_404_NOT_FOUND)
 
-    # Check with ALATPay
-    result = alatpay_service.verify_payment(reference)
+    # Check with ALATPay using transaction ID
+    if donation.alatpay_transaction_id:
+        result = alatpay_service.verify_payment(donation.alatpay_transaction_id)
 
-    if result.get('is_paid'):
-        # Confirm the donation
-        try:
-            donation, was_confirmed = DonationService.confirm_donation(donation.id)
-            return Response({
-                'success': True,
-                'data': {
-                    'status': 'confirmed',
-                    'is_paid': True,
-                    'donation_id': str(donation.id),
-                    'amount': float(donation.amount_naira),
-                    'confirmed_at': donation.confirmed_at,
-                    'message': 'Thank you for your donation!' if was_confirmed else 'Donation already confirmed',
-                }
-            })
-        except Exception as e:
-            logger.error(f'Failed to confirm donation: {e}')
+        if result.get('is_paid'):
+            # Confirm the donation
+            try:
+                donation, was_confirmed = DonationService.confirm_donation(donation.id)
+                return Response({
+                    'success': True,
+                    'data': {
+                        'status': 'confirmed',
+                        'is_paid': True,
+                        'donation_id': str(donation.id),
+                        'amount': float(donation.amount_naira),
+                        'confirmed_at': donation.confirmed_at,
+                        'message': 'Thank you for your donation!' if was_confirmed else 'Donation already confirmed',
+                    }
+                })
+            except Exception as e:
+                logger.error(f'Failed to confirm donation: {e}')
 
-    # Return pending status
-    return Response({
-        'success': True,
-        'data': {
-            'status': donation.status,
-            'is_paid': False,
-            'donation_id': str(donation.id),
-            'amount': float(donation.amount_naira),
-            'alatpay_status': result.get('status', 'unknown'),
-        }
-    })
+        # Return pending status
+        return Response({
+            'success': True,
+            'data': {
+                'status': donation.status,
+                'is_paid': False,
+                'donation_id': str(donation.id),
+                'amount': float(donation.amount_naira),
+                'alatpay_status': result.get('status', 'unknown'),
+            }
+        })
+    else:
+        # No transaction ID - manual verification required
+        return Response({
+            'success': True,
+            'data': {
+                'status': donation.status,
+                'is_paid': False,
+                'donation_id': str(donation.id),
+                'amount': float(donation.amount_naira),
+                'message': 'Payment verification not available - please contact support',
+            }
+        })
 
 
 @api_view(['POST'])
@@ -213,28 +232,40 @@ def manual_confirm(request):
             'message': 'Reference is required'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Check with ALATPay
-    result = alatpay_service.verify_payment(reference)
+    # Find donation by reference
+    try:
+        donation = Donation.objects.get(payment_reference=reference)
+    except Donation.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Donation not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Check with ALATPay using transaction ID
+    if not donation.alatpay_transaction_id:
+        return Response({
+            'success': True,
+            'data': {
+                'status': 'pending',
+                'is_paid': False,
+                'message': 'Payment verification not available - please contact support.',
+            }
+        })
+
+    result = alatpay_service.verify_payment(donation.alatpay_transaction_id)
 
     if result.get('is_paid'):
-        try:
-            donation = Donation.objects.get(payment_reference=reference)
-            donation, was_confirmed = DonationService.confirm_donation(donation.id)
-            return Response({
-                'success': True,
-                'data': {
-                    'status': 'confirmed',
-                    'is_paid': True,
-                    'donation_id': str(donation.id),
-                    'amount': float(donation.amount_naira),
-                    'message': 'Payment confirmed! Thank you for your generous donation.',
-                }
-            })
-        except Donation.DoesNotExist:
-            return Response({
-                'success': False,
-                'message': 'Donation not found'
-            }, status=status.HTTP_404_NOT_FOUND)
+        donation, was_confirmed = DonationService.confirm_donation(donation.id)
+        return Response({
+            'success': True,
+            'data': {
+                'status': 'confirmed',
+                'is_paid': True,
+                'donation_id': str(donation.id),
+                'amount': float(donation.amount_naira),
+                'message': 'Payment confirmed! Thank you for your generous donation.',
+            }
+        })
 
     return Response({
         'success': True,

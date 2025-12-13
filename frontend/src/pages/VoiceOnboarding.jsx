@@ -17,6 +17,13 @@ export default function VoiceOnboarding() {
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState(null);
 
+  // Redirect if already onboarded
+  useEffect(() => {
+    if (user?.onboarding_complete) {
+      navigate('/children', { replace: true });
+    }
+  }, [user, navigate]);
+
   // Start conversation on mount
   useEffect(() => {
     const initConversation = async () => {
@@ -100,19 +107,37 @@ export default function VoiceOnboarding() {
             // Complete the conversation
             await aiApi.completeConversation(conversationId);
             // Refresh user data to get onboarding_complete status
-            await refreshUser();
+            const updatedUser = await refreshUser();
+
+            // Auto-navigate after 2 seconds to show completion message
+            setTimeout(() => {
+              if (updatedUser?.onboarding_complete) {
+                navigate('/children/add');
+              }
+            }, 2000);
           }
         } else {
           setError(response.message || 'Failed to process message');
         }
       } catch (err) {
         console.error('Error sending message:', err);
-        setError('Failed to send message');
+
+        // Provide more specific error messages
+        let errorMessage = 'Failed to send message';
+        if (err.code === 'ECONNABORTED') {
+          errorMessage = 'Request timed out. Please try again.';
+        } else if (err.response) {
+          errorMessage = err.response.data?.message || 'Server error occurred';
+        } else if (err.request) {
+          errorMessage = 'Network error. Please check your connection.';
+        }
+
+        setError(errorMessage);
       } finally {
         setIsProcessing(false);
       }
     },
-    [conversationId, isProcessing, refreshUser]
+    [conversationId, isProcessing, refreshUser, navigate]
   );
 
   const handleContinue = () => {

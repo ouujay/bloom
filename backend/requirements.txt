@@ -5,3 +5,16 @@ django-cors-headers>=4.3
 python-decouple>=3.8
 Pillow>=10.0
 django-filter>=23.5
+
+# Developer A - Blockchain Integration
+web3>=6.0.0
+eth-account>=0.10.0
+python-dotenv>=1.0.0
+
+# Developer A - SMS Integration
+africastalking>=1.2.6
+twilio>=9.0.0
+
+# Developer A - AI Chat Integration
+openai>=1.0.0
+requests>=2.31.0

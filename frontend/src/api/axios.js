@@ -4,7 +4,8 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
-  }
+  },
+  timeout: 120000, // 2 minutes for audio uploads and AI processing
 });
 
 // Add auth token to every request

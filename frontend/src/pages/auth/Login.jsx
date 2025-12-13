@@ -2,33 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff, User, Shield, Stethoscope, Heart } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 const DEMO_ACCOUNTS = [
-  {
-    label: 'Mother',
-    email: 'demo@bloom.ng',
-    password: 'demo1234',
-    icon: User,
-    color: 'bg-primary-100 text-primary-600 hover:bg-primary-200',
-    description: 'Regular user account',
-  },
-  {
-    label: 'Admin',
-    email: 'admin@bloom.ng',
-    password: 'admin1234',
-    icon: Shield,
-    color: 'bg-purple-100 text-purple-600 hover:bg-purple-200',
-    description: 'Admin dashboard access',
-  },
-  {
-    label: 'Doctor',
-    email: 'doctor@bloom.ng',
-    password: 'doctor1234',
-    icon: Stethoscope,
-    color: 'bg-bloom-100 text-bloom-600 hover:bg-bloom-200',
-    description: 'Doctor portal access',
-  },
+  { label: 'Mother', email: 'demo@bloom.ng', password: 'demo1234' },
+  { label: 'Admin', email: 'admin@bloom.ng', password: 'admin1234' },
+  { label: 'Doctor', email: 'doctor@bloom.ng', password: 'doctor1234' },
 ];
 
 export default function Login() {
@@ -117,27 +96,20 @@ export default function Login() {
           </div>
 
           {/* Demo Accounts */}
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
-            <p className="text-sm font-medium text-amber-800 mb-3 flex items-center gap-2">
-              <Heart className="w-4 h-4" />
-              Demo Accounts (Click to fill)
-            </p>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="mb-6 p-4 bg-cream-200/50 rounded-2xl">
+            <p className="text-xs text-dark-500 mb-2">Demo accounts</p>
+            <div className="flex gap-2">
               {DEMO_ACCOUNTS.map((account) => (
                 <button
                   key={account.label}
                   type="button"
                   onClick={() => fillDemoCredentials(account)}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all ${account.color}`}
+                  className="flex-1 py-2 px-3 text-sm font-medium text-dark-600 bg-white hover:bg-cream-100 rounded-lg transition-all border border-cream-300"
                 >
-                  <account.icon className="w-5 h-5" />
-                  <span className="text-xs font-medium">{account.label}</span>
+                  {account.label}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-amber-600 mt-2 text-center">
-              Click any account type above to auto-fill credentials
-            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">

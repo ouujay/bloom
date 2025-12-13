@@ -51,9 +51,9 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
           <div className="flex items-center justify-between">
             {/* Logo - in pill */}
-            <Link to="/" className="flex items-center gap-2 bg-white/90 backdrop-blur-sm px-4 py-2.5 rounded-full shadow-lg shadow-dark-900/5">
-              <img src="/logo.png" alt="Bloom" className="w-12 h-12 object-contain" />
-              <span className="text-lg font-semibold text-dark-900">Bloom</span>
+            <Link to="/" className="flex items-center gap-1.5 md:gap-2 bg-white/90 backdrop-blur-sm px-3 py-2 md:px-4 md:py-2.5 rounded-full shadow-lg shadow-dark-900/5">
+              <img src="/logo.png" alt="Bloom" className="w-8 h-8 md:w-12 md:h-12 object-contain" />
+              <span className="text-base md:text-lg font-semibold text-dark-900">Bloom</span>
             </Link>
 
             {/* Nav Links - each in pill */}

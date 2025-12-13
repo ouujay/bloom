@@ -85,9 +85,8 @@ export default function Login() {
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12">
         <div className="max-w-md w-full">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 mb-8">
+          <Link to="/" className="inline-block mb-8">
             <img src="/logo.png" alt="Bloom" className="w-14 h-14 object-contain" />
-            <span className="text-2xl font-bold text-dark-900">Bloom</span>
           </Link>
 
           <div className="mb-8">

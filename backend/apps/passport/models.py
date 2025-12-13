@@ -183,8 +183,11 @@ class PassportService:
         user = child.user
         stage = child.get_current_stage()
 
-        # Get events from passport_events table
-        events = PassportEvent.objects.filter(child=child).order_by('-event_date')[:100]
+        # Get events from passport_events table (for summary stats)
+        all_events = PassportEvent.objects.filter(child=child)
+
+        # Get limited events for timeline
+        events = all_events.order_by('-event_date')[:100]
 
         # Build timeline
         timeline = []
@@ -205,13 +208,13 @@ class PassportService:
                 'data': event.data,
             })
 
-        # Calculate summary stats
+        # Calculate summary stats (use all_events, not sliced events)
         summary = {
-            'tasks_completed': events.filter(event_type='task_completed').count(),
-            'lessons_completed': events.filter(event_type='lesson_completed').count(),
-            'health_checkins': events.filter(event_type='health_checkin').count(),
-            'concerns_reported': events.filter(is_concern=True).count(),
-            'appointments': events.filter(event_type='appointment').count(),
+            'tasks_completed': all_events.filter(event_type='task_completed').count(),
+            'lessons_completed': all_events.filter(event_type='lesson_completed').count(),
+            'health_checkins': all_events.filter(event_type='health_checkin').count(),
+            'concerns_reported': all_events.filter(is_concern=True).count(),
+            'appointments': all_events.filter(event_type='appointment').count(),
         }
 
         return {

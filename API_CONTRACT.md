@@ -1047,7 +1047,195 @@ Developer B should track these metrics in analytics:
 
 ---
 
-## 7. SMS Feature (Optional - Fully Implemented) 📱
+## 7. Record Donations (SUPER SIMPLE!) 💰
+
+### Overview
+**The easiest endpoint for Developer B!** Just call one API when someone donates, and the blockchain transaction happens automatically - **transaction appears on Etherscan instantly!**
+
+### Why This Matters
+- **Transparency:** Every donation is permanently recorded on blockchain
+- **Trust:** Donors can verify their donation on Etherscan
+- **Accountability:** Immutable record that can't be altered
+- **No Complexity:** Developer B just makes one API call!
+
+### API Endpoint
+
+**Method:** `POST /api/donations/record/`
+**Authentication:** None required (public endpoint)
+
+**Request Body:**
+```json
+{
+  "donor_email": "jane@example.com",
+  "donor_name": "Jane Donor",
+  "amount_naira": 5000,
+  "reference": "DON_12345"
+}
+```
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "donation_id": 42,
+  "blockchain": {
+    "tx_hash": "0x8f3e2c1a4b5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f",
+    "explorer_url": "https://sepolia.etherscan.io/tx/0x8f3e2c...",
+    "block_number": 5234567,
+    "view_on_etherscan": "https://sepolia.etherscan.io/tx/0x8f3e2c..."
+  },
+  "donation": {
+    "donor_email": "jane@example.com",
+    "amount_naira": 5000,
+    "reference": "DON_12345",
+    "recorded_at": "2024-12-13T14:30:00Z"
+  },
+  "message": "₦5000 donation recorded on blockchain successfully! 🎉"
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "error": "Missing required fields: donor_email, amount_naira, reference"
+}
+```
+
+**Duplicate Response (200):**
+```json
+{
+  "success": true,
+  "already_recorded": true,
+  "donation_id": 42,
+  "tx_hash": "0x8f3e2c...",
+  "message": "Donation already recorded on blockchain"
+}
+```
+
+### Frontend Integration (React Example)
+
+```javascript
+// When user completes donation via Paystack
+async function recordDonationOnBlockchain(paymentData) {
+  try {
+    const response = await axios.post('/api/donations/record/', {
+      donor_email: paymentData.customer.email,
+      donor_name: paymentData.customer.name,
+      amount_naira: paymentData.amount / 100, // Paystack sends in kobo
+      reference: paymentData.reference
+    });
+
+    if (response.data.success) {
+      // Show success message with Etherscan link
+      toast.success(
+        <div>
+          <p>Donation recorded on blockchain!</p>
+          <a href={response.data.blockchain.view_on_etherscan} target="_blank">
+            View on Etherscan →
+          </a>
+        </div>
+      );
+
+      // Store transaction hash for user's donation history
+      saveDonationReceipt({
+        amount: response.data.donation.amount_naira,
+        tx_hash: response.data.blockchain.tx_hash,
+        etherscan_link: response.data.blockchain.view_on_etherscan
+      });
+    }
+  } catch (error) {
+    console.error('Blockchain recording failed:', error);
+    // Donation succeeded, but blockchain recording failed
+    // Show warning - manual recording may be needed
+    toast.warning('Donation received but blockchain recording pending');
+  }
+}
+```
+
+### What Developer B Needs to Do
+
+**Literally just this:**
+1. When donation payment succeeds (Paystack webhook)
+2. Call `/api/donations/record/` with donor info
+3. Done! Transaction appears on Etherscan
+
+**Backend handles:**
+- ✅ Smart contract interaction
+- ✅ Transaction signing
+- ✅ Gas fee payment
+- ✅ Blockchain confirmation
+- ✅ Etherscan link generation
+
+### Viewing on Etherscan
+
+When you get the response, click the `view_on_etherscan` link to see:
+
+**Etherscan shows:**
+- Transaction hash
+- Block number
+- Timestamp
+- Gas used
+- Donor email (encrypted in smart contract event)
+- Amount donated
+- **Status: Success ✅**
+
+**Example:** https://sepolia.etherscan.io/tx/0x8f3e2c1a4b5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f
+
+### Testing
+
+```bash
+# Test recording a donation
+curl -X POST http://localhost:8000/api/donations/record/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "donor_email": "test@example.com",
+    "amount_naira": 1000,
+    "reference": "TEST_DON_001"
+  }'
+```
+
+**Expected response:**
+- Success: `true`
+- Transaction hash returned
+- Link to view on Etherscan
+- Donation ID for your database
+
+### Production Notes
+
+**Important:**
+- Each donation creates a real blockchain transaction
+- Costs ~$0.10 in gas fees (covered by backend)
+- Transaction is permanent and immutable
+- Donors can verify their donation anytime on Etherscan
+
+**Best Practices:**
+1. Call this endpoint AFTER payment succeeds (not before)
+2. Use Paystack reference as the `reference` field
+3. Store the `tx_hash` in your donations table
+4. Show donors the Etherscan link in confirmation email
+5. Handle errors gracefully - donation still succeeded even if blockchain fails
+
+### Why This is Powerful
+
+**For Donors:**
+- "Where did my money go?" → Here's the blockchain proof!
+- Click Etherscan link to see permanent record
+- Builds trust and transparency
+
+**For BLOOM:**
+- Every donation is auditable
+- Blockchain proof for investors/donors
+- No one can claim "donations disappeared"
+- Competitive advantage over platforms without blockchain
+
+**For Developer B:**
+- One API call, zero blockchain complexity!
+- No Web3, no private keys, no gas management
+- Just HTTP POST and you're done!
+
+---
+
+## 8. SMS Feature (Optional - Fully Implemented) 📱
 
 ### Overview
 **Status:** ✅ **FULLY IMPLEMENTED**
@@ -1404,6 +1592,7 @@ ngrok http 8000
 | 1.0 | 2024-12-12 | Initial API contract |
 | 2.0 | 2024-12-12 | Added real contract addresses, testing examples, integration guides |
 | 3.0 | 2024-12-13 | Added SMS feature (Twilio + Africa's Talking), AI chat integration, full multi-provider support |
+| 3.1 | 2024-12-13 | Added simple donation API endpoint with automatic Etherscan integration |
 
 **Agreed by:**
 - Developer A: ________________ Date: ________

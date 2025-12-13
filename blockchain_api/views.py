@@ -486,6 +486,110 @@ def approve_withdrawal(request):
         )
 
 
+@api_view(['POST'])
+def record_donation(request):
+    """
+    SIMPLE DONATION API - For Developer B
+
+    Developer B just calls this endpoint when someone donates.
+    Backend handles ALL blockchain complexity automatically!
+
+    POST /api/donations/record/
+    Body: {
+        "donor_email": "donor@example.com",
+        "donor_name": "Jane Donor",  // optional
+        "amount_naira": 5000,
+        "reference": "DON_12345"  // your internal donation ID
+    }
+
+    Response includes:
+    - Transaction hash
+    - Etherscan link (view transaction on blockchain)
+    - Donation ID
+
+    Transaction appears on Etherscan automatically!
+    """
+    try:
+        # Validate input
+        donor_email = request.data.get('donor_email')
+        amount_naira = request.data.get('amount_naira')
+        reference = request.data.get('reference')
+        donor_name = request.data.get('donor_name', '')
+
+        if not donor_email or not amount_naira or not reference:
+            return Response({
+                'error': 'Missing required fields: donor_email, amount_naira, reference'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if already recorded (prevent duplicates)
+        if Donation.objects.filter(paystack_reference=reference).exists():
+            existing = Donation.objects.get(paystack_reference=reference)
+            return Response({
+                'success': True,
+                'already_recorded': True,
+                'donation_id': existing.id,
+                'tx_hash': existing.blockchain_tx_hash,
+                'explorer_url': f"https://sepolia.etherscan.io/tx/{existing.blockchain_tx_hash}" if existing.blockchain_tx_hash else None,
+                'message': 'Donation already recorded on blockchain'
+            })
+
+        with db_transaction.atomic():
+            # Create donation record
+            donation = Donation.objects.create(
+                donor_email=donor_email,
+                amount_naira=amount_naira,
+                paystack_reference=reference,
+                payment_status='SUCCESS',
+                paid_at=timezone.now()
+            )
+
+            # Record on blockchain automatically!
+            blockchain_result = blockchain.record_deposit(
+                amount_naira=int(amount_naira),
+                reference=reference,
+                donor_email=donor_email
+            )
+
+            if blockchain_result['success']:
+                # Update donation with blockchain info
+                donation.blockchain_tx_hash = blockchain_result['signature']
+                donation.blockchain_recorded = True
+                donation.recorded_at = timezone.now()
+                donation.save()
+
+                return Response({
+                    'success': True,
+                    'donation_id': donation.id,
+                    'blockchain': {
+                        'tx_hash': blockchain_result['signature'],
+                        'explorer_url': blockchain_result['explorer_url'],
+                        'block_number': blockchain_result.get('block_number'),
+                        'view_on_etherscan': f"https://sepolia.etherscan.io/tx/{blockchain_result['signature']}"
+                    },
+                    'donation': {
+                        'donor_email': donor_email,
+                        'amount_naira': amount_naira,
+                        'reference': reference,
+                        'recorded_at': donation.recorded_at
+                    },
+                    'message': f'₦{amount_naira} donation recorded on blockchain successfully! 🎉'
+                }, status=status.HTTP_201_CREATED)
+            else:
+                # Donation saved but blockchain failed
+                donation.delete()  # Rollback
+                return Response({
+                    'success': False,
+                    'error': f"Blockchain recording failed: {blockchain_result.get('error', 'Unknown error')}",
+                    'message': 'Please try again or contact support'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': f'Failed to record donation: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 @api_view(['GET'])
 def blockchain_status(request):
     """

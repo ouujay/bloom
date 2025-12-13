@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     "apps.tokens",
     "apps.withdrawals",
     "apps.payments",
+    "apps.blockchain_api",
+    "apps.sms_api",
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -148,5 +150,22 @@ ALATPAY_BASE_URL = os.getenv('ALATPAY_BASE_URL', 'https://apibox.alatpay.ng')
 ALATPAY_BUSINESS_ID = os.getenv('ALATPAY_BUSINESS_ID')
 ALATPAY_CALLBACK_URL = os.getenv('ALATPAY_CALLBACK_URL', 'http://localhost:8000/api/payments/callback/')
 
-# Blockchain API Configuration
-BLOCKCHAIN_API_URL = os.getenv('BLOCKCHAIN_API_URL', 'http://localhost:8000/api')
+# Blockchain Configuration (Developer A)
+BASE_RPC_URL = os.getenv('BASE_RPC_URL', 'https://1rpc.io/sepolia')
+ADMIN_PRIVATE_KEY = os.getenv('ADMIN_PRIVATE_KEY', '')
+CONTRACT_ADDRESS = os.getenv('CONTRACT_ADDRESS', '0x4AfD7A134Eb249E081799d3A94079de11932C37f')
+ADMIN_ADDRESS = os.getenv('ADMIN_ADDRESS', '0x12E1A74e2534088da36c6Ff9172C885EA64ad338')
+
+# SMS Configuration (Developer A)
+SMS_ENABLED = os.getenv('SMS_ENABLED', 'False').lower() == 'true'
+SMS_PROVIDER = os.getenv('SMS_PROVIDER', 'twilio')
+
+# Twilio
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
+TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER', '')
+
+# Africa's Talking
+AT_USERNAME = os.getenv('AT_USERNAME', 'sandbox')
+AT_API_KEY = os.getenv('AT_API_KEY', '')
+AT_SENDER_ID = os.getenv('AT_SENDER_ID', 'BLOOM')

@@ -14,6 +14,10 @@ urlpatterns = [
     path("api/tokens/", include("apps.tokens.urls")),
     path("api/withdrawals/", include("apps.withdrawals.urls")),
     path("api/payments/", include("apps.payments.urls")),
+    # Blockchain API (Developer A)
+    path("api/", include("apps.blockchain_api.urls")),
+    # SMS API (Developer A)
+    path("sms/", include("apps.sms_api.urls")),
 ]
 
 # Serve media files in development

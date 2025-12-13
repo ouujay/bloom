@@ -17,6 +17,7 @@ import {
   Users,
   PiggyBank,
   RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
@@ -377,6 +378,17 @@ export default function Wallet() {
                         <div className="text-xs text-dark-400">
                           Balance: {tx.balance_after}
                         </div>
+                        {tx.explorer_url && (
+                          <a
+                            href={tx.explorer_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline mt-1"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            View on Blockchain
+                          </a>
+                        )}
                       </div>
                     </div>
                   );
@@ -439,6 +451,17 @@ export default function Wallet() {
                       </span>
                       {withdrawal.rejection_reason && (
                         <p className="text-xs text-red-500 mt-1">{withdrawal.rejection_reason}</p>
+                      )}
+                      {withdrawal.explorer_url && (
+                        <a
+                          href={withdrawal.explorer_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-end gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline mt-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          View on Blockchain
+                        </a>
                       )}
                     </div>
                   </div>

@@ -147,3 +147,6 @@ ALATPAY_WEBHOOK_SECRET = os.getenv('ALATPAY_WEBHOOK_SECRET', '')
 ALATPAY_BASE_URL = os.getenv('ALATPAY_BASE_URL', 'https://apibox.alatpay.ng')
 ALATPAY_BUSINESS_ID = os.getenv('ALATPAY_BUSINESS_ID')
 ALATPAY_CALLBACK_URL = os.getenv('ALATPAY_CALLBACK_URL', 'http://localhost:8000/api/payments/callback/')
+
+# Blockchain API Configuration
+BLOCKCHAIN_API_URL = os.getenv('BLOCKCHAIN_API_URL', 'http://localhost:8000/api')

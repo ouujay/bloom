@@ -111,6 +111,8 @@ def my_transactions(request):
         'source': t.source,
         'description': t.description,
         'created_at': t.created_at,
+        'blockchain_tx': t.blockchain_tx,
+        'explorer_url': t.explorer_url,
     } for t in transactions]
     return Response({
         'success': True,
@@ -164,6 +166,8 @@ def my_withdrawals(request):
         'rejection_reason': w.rejection_reason,
         'created_at': w.created_at,
         'paid_at': w.paid_at,
+        'blockchain_tx': w.blockchain_tx,
+        'explorer_url': w.explorer_url,
     } for w in withdrawals]
     return Response({
         'success': True,
@@ -203,6 +207,10 @@ def confirm_donation(request, donation_id):
         return Response({
             'success': was_confirmed,
             'message': f'Donation of ₦{donation.amount_naira:,.2f} confirmed' if was_confirmed else 'Already confirmed',
+            'data': {
+                'blockchain_tx': donation.blockchain_tx,
+                'explorer_url': donation.explorer_url,
+            }
         })
     except Donation.DoesNotExist:
         return Response({
@@ -250,6 +258,8 @@ def admin_approve_withdrawal(request, withdrawal_id):
                 'account_number': withdrawal.account_number,
                 'account_name': withdrawal.account_name,
                 'naira_amount': float(withdrawal.naira_amount),
+                'blockchain_tx': withdrawal.blockchain_tx,
+                'explorer_url': withdrawal.explorer_url,
             }
         })
     except ValueError as e:

@@ -1,8 +1,12 @@
+import logging
 from decimal import Decimal
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import Sum
 from .models import DonationPool, Donation, TokenTransaction, WithdrawalRequest
+from .blockchain_api import BlockchainAPI
+
+logger = logging.getLogger(__name__)
 
 
 class TokenService:
@@ -56,6 +60,33 @@ class TokenService:
         user.token_balance = int(new_balance)
         user.total_tokens_earned += int(amount)
         user.save(update_fields=['token_balance', 'total_tokens_earned'])
+
+        # Mint on blockchain (non-blocking - don't fail if blockchain is down)
+        action_map = {
+            'signup': 'signup',
+            'onboarding': 'signup',
+            'daily_lesson': 'module',
+            'daily_checkin': 'daily_log',
+            'daily_task': 'daily_log',
+            'weekly_quiz': 'module',
+            'streak_bonus': 'daily_log',
+            'health_checkin': 'daily_log',
+            'video_watched': 'module',
+            'referral': 'referral',
+        }
+
+        try:
+            blockchain_result = BlockchainAPI.mint_tokens(
+                action_type=action_map.get(source, 'daily_log'),
+                action_id=reference_id or str(txn.id),
+            )
+
+            if blockchain_result.get('success'):
+                txn.blockchain_tx = blockchain_result.get('tx_hash', '')
+                txn.explorer_url = blockchain_result.get('explorer_url', '')
+                txn.save(update_fields=['blockchain_tx', 'explorer_url'])
+        except Exception as e:
+            logger.warning(f"Blockchain mint failed for txn {txn.id}: {e}")
 
         return txn
 
@@ -121,12 +152,27 @@ class DonationService:
 
         donation.status = 'confirmed'
         donation.confirmed_at = timezone.now()
-        donation.save()
 
         pool = DonationPool.get_pool()
         pool.pool_balance += donation.amount_naira
         pool.save()
 
+        # Record on blockchain (non-blocking - don't fail if blockchain is down)
+        try:
+            blockchain_result = BlockchainAPI.record_donation(
+                donor_email=donation.donor_email,
+                donor_name=donation.donor_name,
+                amount_naira=donation.amount_naira,
+                reference=donation.payment_reference or str(donation.id),
+            )
+
+            if blockchain_result.get('success'):
+                donation.blockchain_tx = blockchain_result.get('tx_hash', '')
+                donation.explorer_url = blockchain_result.get('explorer_url', '')
+        except Exception as e:
+            logger.warning(f"Blockchain record_donation failed for {donation.id}: {e}")
+
+        donation.save()
         return donation, True
 
     @staticmethod
@@ -199,6 +245,21 @@ class WithdrawalService:
         withdrawal.status = 'approved'
         withdrawal.reviewed_by = admin_user
         withdrawal.reviewed_at = timezone.now()
+
+        # Burn tokens on blockchain (non-blocking)
+        try:
+            blockchain_result = BlockchainAPI.burn_tokens(
+                user_id=withdrawal.user.id,
+                amount=withdrawal.token_amount,
+                withdrawal_id=withdrawal.id,
+            )
+
+            if blockchain_result.get('success'):
+                withdrawal.blockchain_tx = blockchain_result.get('tx_hash', '')
+                withdrawal.explorer_url = blockchain_result.get('explorer_url', '')
+        except Exception as e:
+            logger.warning(f"Blockchain burn_tokens failed for withdrawal {withdrawal.id}: {e}")
+
         withdrawal.save()
 
         return withdrawal

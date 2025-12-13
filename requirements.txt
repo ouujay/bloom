@@ -1,0 +1,21 @@
+# Django and REST Framework
+Django>=6.0
+djangorestframework>=3.15.0
+django-cors-headers>=4.0.0
+
+# Blockchain integration
+web3>=6.0.0
+eth-account>=0.10.0
+
+# SMS integration (optional - for feature phone support)
+africastalking>=1.2.6
+twilio>=9.0.0
+
+# AI integration (optional - for SMS chat)
+openai>=1.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Utils
+requests>=2.31.0

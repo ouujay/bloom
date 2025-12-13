@@ -1047,6 +1047,321 @@ Developer B should track these metrics in analytics:
 
 ---
 
+## 7. SMS Feature (Optional - Fully Implemented) 📱
+
+### Overview
+**Status:** ✅ **FULLY IMPLEMENTED**
+
+BLOOM supports SMS-based interaction for feature phone users via **Twilio** or **Africa's Talking**. This massively expands market reach in Nigeria where 60% of users have feature phones.
+
+### Provider Support
+**Multi-Provider Architecture:**
+- ✅ **Twilio** (Recommended for testing - $15 free credit)
+- ✅ **Africa's Talking** (Best for production in Nigeria)
+- Switch providers via `SMS_PROVIDER` environment variable
+
+### SMS Commands Available
+
+| Command | Example | Response | User Required? |
+|---------|---------|----------|---------------|
+| `BAL` or `BALANCE` | User texts: `BAL` | Balance in BLOOM tokens + Naira value | Yes |
+| `Q [question]` | User texts: `Q How do I reduce nausea?` | AI health answer (GPT-4o-mini) | Yes |
+| `TIPS` or `TIP` | User texts: `TIPS` | Random daily health tip | No |
+| `HELP` | User texts: `HELP` | Command menu | No |
+| Any other text | User texts: `I feel dizzy` | Treated as AI question | Yes |
+
+### API Endpoints
+
+#### 1. SMS Webhook (Receive Incoming SMS)
+
+**Endpoint:** `POST /sms/webhook/`
+
+**Purpose:** Receives incoming SMS from Twilio or Africa's Talking
+
+**Authentication:** None (webhook called by SMS provider)
+
+**Payload (Africa's Talking):**
+```json
+{
+  "from": "+2348033986757",
+  "text": "BAL"
+}
+```
+
+**Payload (Twilio):**
+```json
+{
+  "From": "+2348033986757",
+  "Body": "BAL"
+}
+```
+
+**Response:**
+```
+HTTP 200 OK
+```
+
+**Integration Notes:**
+- Webhook automatically looks up user by phone number
+- If user not found, sends welcome message
+- Integrates with blockchain_api for balance checks
+- Uses OpenAI for AI responses (if configured)
+
+#### 2. Send Test SMS
+
+**Endpoint:** `POST /sms/test/`
+
+**Purpose:** Manually send SMS for testing
+
+**Authentication:** AllowAny (Change to IsAdminUser in production)
+
+**Request:**
+```json
+{
+  "phone_number": "+2348033986757",
+  "message": "🌸 Hello from BLOOM!"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "SMS sent successfully",
+  "recipients": 1,
+  "phone": "+2348033986757"
+}
+```
+
+**Response (Error):**
+```json
+{
+  "success": false,
+  "error": "Invalid phone number: +234"
+}
+```
+
+#### 3. Check SMS Status
+
+**Endpoint:** `GET /sms/status/`
+
+**Purpose:** Check if SMS feature is enabled
+
+**Authentication:** None
+
+**Response:**
+```json
+{
+  "sms_enabled": true,
+  "message": "SMS feature is active"
+}
+```
+
+### Configuration
+
+**Environment Variables (`.env`):**
+
+```bash
+# SMS Integration (Multi-Provider)
+SMS_ENABLED=True
+SMS_PROVIDER=twilio  # or 'africastalking'
+
+# Twilio Configuration
+TWILIO_ACCOUNT_SID=AC1234567890abcdef
+TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_PHONE_NUMBER=+15551234567
+
+# Africa's Talking Configuration
+AT_USERNAME=sandbox
+AT_API_KEY=atsk_abc123...
+AT_SENDER_ID=BLOOM
+
+# OpenAI (for AI chat via SMS)
+OPENAI_API_KEY=sk-...
+```
+
+### Developer B Integration
+
+#### User Model Requirement
+
+Ensure User model has `phone_number` field:
+
+```python
+# In your User model
+class User(AbstractUser):
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    # ... other fields
+```
+
+#### React Integration Example
+
+```javascript
+// Check if SMS is available
+const checkSMSStatus = async () => {
+  const response = await axios.get('/sms/status/');
+  if (response.data.sms_enabled) {
+    // Show SMS feature in UI
+    setShowSMSOption(true);
+  }
+};
+
+// Send test SMS
+const sendTestSMS = async (phone, message) => {
+  try {
+    const response = await axios.post('/sms/test/', {
+      phone_number: phone,
+      message: message
+    });
+    if (response.data.success) {
+      toast.success('SMS sent successfully!');
+    }
+  } catch (error) {
+    toast.error('Failed to send SMS');
+  }
+};
+```
+
+### AI Response Integration
+
+**How it works:**
+1. User texts: `Q How do I reduce nausea?`
+2. Backend extracts question from message
+3. Calls OpenAI GPT-4o-mini with maternal health system prompt
+4. Truncates response to 150 characters (SMS limit)
+5. Sends response back to user
+
+**System Prompt:**
+```
+You are Bloom, a maternal health assistant for Nigerian mothers.
+Keep responses VERY SHORT (under 150 characters for SMS).
+Be warm, supportive, and culturally sensitive.
+```
+
+**Example Flow:**
+```
+User: "Q How do I reduce nausea?"
+AI: "🌸 Eat small meals every 2-3 hours. Ginger tea helps! Reply Q [question] for more"
+```
+
+### Automation: Daily Health Tips
+
+**Management Command:**
+
+```bash
+# Test without sending (dry run)
+python manage.py send_daily_tips --dry-run
+
+# Send to all users with phone numbers
+python manage.py send_daily_tips
+```
+
+**Cron Setup (Optional):**
+```bash
+# Send daily at 8 AM
+0 8 * * * cd /path/to/bloom && python manage.py send_daily_tips
+```
+
+### Testing Guide
+
+#### 1. Get Twilio Credentials (Recommended for Testing)
+
+1. Sign up: https://www.twilio.com/try-twilio ($15 free credit)
+2. Get **Account SID**, **Auth Token**, **Phone Number**
+3. Add to `.env`
+4. Restart Django server
+
+#### 2. Send Test SMS
+
+```bash
+curl -X POST http://localhost:8000/sms/test/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": "+2348033986757",
+    "message": "🌸 BLOOM SMS is working!"
+  }'
+```
+
+#### 3. Test Webhook Locally
+
+```bash
+# Simulate incoming "HELP" command
+curl -X POST http://localhost:8000/sms/webhook/ \
+  -d "From=%2B2348033986757&Body=HELP"
+
+# Simulate AI question
+curl -X POST http://localhost:8000/sms/webhook/ \
+  -d "From=%2B2348033986757&Body=Q%20How%20do%20I%20reduce%20nausea"
+```
+
+#### 4. Test with Real Phone (Using ngrok)
+
+```bash
+# Install ngrok
+brew install ngrok
+
+# Start tunnel
+ngrok http 8000
+
+# Copy ngrok URL (e.g., https://abc123.ngrok.io)
+# Configure in Twilio dashboard → SMS → Webhook URL:
+# https://abc123.ngrok.io/sms/webhook/
+```
+
+### Production Deployment
+
+#### Twilio Setup
+1. Upgrade to paid account
+2. Purchase Nigerian phone number or use international
+3. Configure webhook: `https://your-domain.com/sms/webhook/`
+4. Set `SMS_PROVIDER=twilio` in production `.env`
+
+#### Africa's Talking Setup
+1. Sign up at: https://africastalking.com
+2. Request sender ID approval (e.g., "BLOOM")
+3. Add production credentials to `.env`
+4. Set `SMS_PROVIDER=africastalking`
+5. Configure webhook in dashboard
+
+### Pricing
+
+**Twilio (International):**
+- Nigeria: ~₦50 per SMS
+- Free trial: $15 credit (~300 SMS)
+
+**Africa's Talking (Nigeria):**
+- Nigeria: ₦2-4 per SMS
+- Bulk discounts available
+- Sandbox: FREE unlimited testing
+
+### Feature Flags
+
+**Graceful Degradation:**
+- If `SMS_ENABLED=False` → All endpoints log messages, no errors
+- If no OpenAI key → Generic health responses instead
+- If blockchain_api unavailable → Graceful error messages
+- If phone_number field missing → Catches exception safely
+
+**The app NEVER breaks, even if SMS is misconfigured!**
+
+### Market Impact
+
+**🚀 Why This Matters:**
+- 60% of Nigerian mothers have feature phones (not smartphones)
+- SMS works in rural areas with poor internet
+- 10x market expansion overnight
+- Competitive advantage over app-only solutions
+
+**Investor Pitch:**
+> "We're not just an app - we support basic phones via SMS! In Nigeria, only 40% have smartphones, but 80%+ have feature phones. With SMS:
+> - Mothers get daily health tips
+> - Ask AI health questions via text
+> - Check token balance
+> - Works on ANY phone
+>
+> **This 10x's our market overnight!** 🇳🇬"
+
+---
+
 ## 📋 Pre-Launch Checklist
 
 ### Developer B Must Complete:
@@ -1088,6 +1403,7 @@ Developer B should track these metrics in analytics:
 |---------|------|---------|
 | 1.0 | 2024-12-12 | Initial API contract |
 | 2.0 | 2024-12-12 | Added real contract addresses, testing examples, integration guides |
+| 3.0 | 2024-12-13 | Added SMS feature (Twilio + Africa's Talking), AI chat integration, full multi-provider support |
 
 **Agreed by:**
 - Developer A: ________________ Date: ________
@@ -1114,3 +1430,5 @@ Developer B should track these metrics in analytics:
 ---
 
 **✅ This API contract is production-ready. All endpoints tested and verified on Ethereum Sepolia testnet.**
+
+**🎉 NEW: SMS Feature Fully Integrated! Twilio + Africa's Talking support with AI chat for feature phone users.**

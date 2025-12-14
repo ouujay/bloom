@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, LogOut } from 'lucide-react';
 import childrenApi from '../api/children';
+import { useAuth } from '../context/AuthContext';
 
 // Images
 const bgImage = 'https://i.pinimg.com/736x/f4/49/f0/f449f0c95f40b603074e2cbbbed1de3d.jpg';
@@ -11,9 +12,15 @@ const emptyStateImg = 'https://i.pinimg.com/1200x/1b/49/fc/1b49fc306f5464006953e
 
 export default function Children() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [children, setChildren] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   useEffect(() => {
     const fetchChildren = async () => {
@@ -95,14 +102,23 @@ export default function Children() {
               <span className="text-lg font-semibold text-dark-900">Bloom</span>
             </Link>
 
-            {/* Add Button - Pill */}
-            <button
-              onClick={handleAddChild}
-              className="flex items-center gap-2 bg-primary-400 hover:bg-primary-500 text-white px-5 py-2.5 rounded-full shadow-lg shadow-primary-400/25 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">Add Child</span>
-            </button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleAddChild}
+                className="flex items-center gap-2 bg-primary-400 hover:bg-primary-500 text-white px-5 py-2.5 rounded-full shadow-lg shadow-primary-400/25 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm font-medium">Add Child</span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-white/90 backdrop-blur-sm hover:bg-red-50 text-dark-600 hover:text-red-600 px-4 py-2.5 rounded-full shadow-lg shadow-dark-900/5 transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-sm font-medium">Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </nav>

@@ -144,45 +144,46 @@ class Command(BaseCommand):
         self.stdout.write(f'  {status}: Pregnancy for {mother.first_name} (Week 28)')
 
     def seed_tokens(self):
-        self.stdout.write('Setting up token balances...')
+        self.stdout.write('Setting up token pool and balances...')
 
         try:
-            from apps.tokens.models import TokenPool, TokenTransaction, Donation
+            from apps.tokens.models import DonationPool, TokenTransaction, Donation
         except ImportError:
             self.stdout.write(self.style.WARNING('  Tokens app not found, skipping...'))
             return
 
-        # Create token pool if not exists
-        pool, created = TokenPool.objects.get_or_create(
-            id=1,
-            defaults={
-                'total_tokens': 1000000,
-                'available_tokens': 950000,
-                'distributed_tokens': 50000,
-            }
-        )
-        if created:
-            self.stdout.write('  Created token pool')
+        # Create DonationPool using the singleton pattern
+        # This ensures the pool exists with proper initial values
+        pool = DonationPool.get_pool()  # Uses get_or_create with fixed UUID
+        if pool.pool_balance == 0:
+            # Set initial pool balance for demo
+            pool.pool_balance = Decimal('100000')  # ₦100,000 initial pool
+            pool.total_tokens_issued = Decimal('50000')  # 50,000 tokens issued
+            pool.save()
+            self.stdout.write('  Created/updated donation pool with ₦100,000 balance')
+        else:
+            self.stdout.write(f'  Donation pool exists: ₦{pool.pool_balance:,.2f}')
 
         # Add some token transactions for demo mother
         mother = User.objects.filter(email='demo@bloom.ng').first()
         if mother:
             # Create sample transactions
             transaction_types = [
-                ('lesson', 5, 'Completed daily lesson'),
-                ('checkin', 5, 'Health check-in'),
-                ('task', 5, 'Wellness task'),
-                ('streak', 20, '7-day streak bonus'),
+                ('daily_lesson', 5, 'Completed daily lesson'),
+                ('daily_checkin', 5, 'Health check-in'),
+                ('daily_task', 5, 'Wellness task'),
+                ('streak_bonus', 20, '7-day streak bonus'),
             ]
 
             for i, (action, amount, desc) in enumerate(transaction_types):
                 TokenTransaction.objects.get_or_create(
                     user=mother,
-                    amount=amount,
-                    transaction_type='earn',
+                    source=action,
                     description=desc,
                     defaults={
-                        'created_at': timezone.now() - timedelta(days=i),
+                        'amount': Decimal(str(amount)),
+                        'transaction_type': 'earn',
+                        'balance_after': Decimal(str(amount * (i + 1))),
                     }
                 )
             self.stdout.write(f'  Added token transactions for {mother.first_name}')

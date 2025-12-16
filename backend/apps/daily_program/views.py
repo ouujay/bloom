@@ -214,6 +214,9 @@ def complete_checkin(request, child_id, progress_id):
 @permission_classes([IsAuthenticated])
 def complete_task(request, child_id, progress_id):
     """Mark daily task as complete."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     child = get_object_or_404(Child, id=child_id, user=request.user)
 
     try:
@@ -227,15 +230,29 @@ def complete_task(request, child_id, progress_id):
             'message': 'Progress not found'
         }, status=status.HTTP_404_NOT_FOUND)
 
-    progress = DailyProgramService.complete_task(child, progress)
+    try:
+        # Ensure DonationPool exists before awarding tokens
+        from apps.tokens.models import DonationPool
+        DonationPool.get_pool()
 
-    return Response({
-        'success': True,
-        'data': {
-            'progress': UserDayProgressSerializer(progress).data,
-            'new_balance': request.user.token_balance,
-        }
-    })
+        progress = DailyProgramService.complete_task(child, progress)
+
+        # Refresh user from database to get updated balance
+        request.user.refresh_from_db()
+
+        return Response({
+            'success': True,
+            'data': {
+                'progress': UserDayProgressSerializer(progress).data,
+                'new_balance': request.user.token_balance,
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error completing task: {e}", exc_info=True)
+        return Response({
+            'success': False,
+            'message': f'Error completing task: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])

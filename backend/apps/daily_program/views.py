@@ -29,66 +29,12 @@ def get_today(request, child_id):
     missed = DailyProgramService.get_missed_days(child)
     stage = result.get('stage', {})
 
-    # Get today's video task based on week and day
-    current_week = stage.get('week', 1) if stage else 1
-    current_day = result['content'].day
-
-    # Find a video for today (check for exact week+day match first, then week match)
-    daily_video = YouTubeLesson.objects.filter(
-        stage=result['content'].stage_type,
-        week=current_week,
-        day=current_day,
-        is_active=True
-    ).first()
-
-    # Fallback: get any video from this week
-    if not daily_video:
-        daily_video = YouTubeLesson.objects.filter(
-            stage=result['content'].stage_type,
-            week=current_week,
-            is_active=True
-        ).first()
-
-    # Fallback: get closest week's video
-    if not daily_video:
-        daily_video = YouTubeLesson.objects.filter(
-            stage=result['content'].stage_type,
-            week__lte=current_week,
-            is_active=True
-        ).order_by('-week').first()
-
-    # Check if video has been completed (which marks task as done)
-    video_completed = False
-    video_data = None
-    if daily_video:
-        video_progress = VideoProgress.objects.filter(
-            user=request.user,
-            video=daily_video
-        ).first()
-        video_completed = video_progress.is_completed if video_progress else False
-        # Use hqdefault thumbnail (always available) if thumbnail_url uses maxresdefault
-        thumbnail = daily_video.thumbnail_url
-        if thumbnail and 'maxresdefault' in thumbnail:
-            thumbnail = thumbnail.replace('maxresdefault', 'hqdefault')
-        elif not thumbnail:
-            thumbnail = f"https://i.ytimg.com/vi/{daily_video.youtube_id}/hqdefault.jpg"
-        video_data = {
-            'id': str(daily_video.id),
-            'youtube_id': daily_video.youtube_id,
-            'title': daily_video.title,
-            'description': daily_video.description,
-            'duration_seconds': daily_video.duration_seconds,
-            'thumbnail_url': thumbnail,
-            'key_points': daily_video.key_points,
-            'token_reward': daily_video.token_reward,
-            'is_completed': video_completed,
-        }
-
-    # Task is now watching the daily video
-    task_title = f"Watch: {daily_video.title}" if daily_video else result['content'].task_title
-    task_description = daily_video.description if daily_video else result['content'].task_description
-    task_completed = video_completed if daily_video else result['progress'].task_completed
-    task_tokens = daily_video.token_reward if daily_video else result['content'].task_tokens
+    # Use the regular wellness task from daily content (not video-based)
+    # Videos are available as optional bonus content in the Videos section
+    task_title = result['content'].task_title
+    task_description = result['content'].task_description
+    task_completed = result['progress'].task_completed
+    task_tokens = result['content'].task_tokens
 
     return Response({
         'success': True,
@@ -104,15 +50,13 @@ def get_today(request, child_id):
                 'tips': [result['content'].tip_of_day] if result['content'].tip_of_day else [],
             },
             'tasks': [{
-                'id': str(daily_video.id) if daily_video else 'task-1',
+                'id': 'task-1',
                 'title': task_title,
                 'description': task_description,
                 'completed': task_completed,
                 'tokens': task_tokens,
-                'type': 'video' if daily_video else 'general',
-                'video': video_data,
+                'type': 'general',
             }],
-            'daily_video': video_data,
             'lesson_completed': result['progress'].lesson_completed,
             'checkin_completed': result['progress'].checkin_completed,
             'task_completed': task_completed,

@@ -39,3 +39,4 @@ media/
 coverage/
 .coverage
 htmlcov/
+azure-env-config.json

@@ -21,14 +21,19 @@ def signup(request):
         # Generate tokens
         refresh = RefreshToken.for_user(user)
 
-        # Award signup bonus
-        from apps.tokens.services import TokenService
-        TokenService.award_tokens(
-            user=user,
-            amount=50,
-            source='signup',
-            description='Welcome to MamaAlert!'
-        )
+        # Award signup bonus (don't fail signup if this errors)
+        try:
+            from apps.tokens.services import TokenService
+            TokenService.award_tokens(
+                user=user,
+                amount=50,
+                source='signup',
+                description='Welcome to MamaAlert!'
+            )
+        except Exception as e:
+            # Log but don't fail signup
+            import logging
+            logging.getLogger(__name__).error(f"Failed to award signup bonus: {e}")
 
         return Response({
             'success': True,

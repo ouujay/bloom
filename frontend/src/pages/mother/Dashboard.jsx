@@ -4,13 +4,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useDailyProgram } from '../../hooks/useDailyProgram';
 import { useTokens } from '../../hooks/useTokens';
 import { healthAPI } from '../../api/health';
-import { dailyAPI } from '../../api/daily';
 import Card from '../../components/common/Card';
 import ProgressBar from '../../components/common/ProgressBar';
 import {
   BookOpen, TrendingUp, Calendar, ChevronRight,
-  Baby, CheckCircle, Circle, Stethoscope, Heart,
-  Activity, AlertCircle, Play, Clock, Sparkles
+  Baby, CheckCircle, Stethoscope, Heart,
+  Activity, AlertCircle, Sparkles
 } from 'lucide-react';
 
 // Pregnancy week data for baby size comparisons
@@ -46,8 +45,6 @@ export default function Dashboard() {
   const { balance, isLoadingBalance } = useTokens();
 
   const [appointments, setAppointments] = useState([]);
-  const [videos, setVideos] = useState([]);
-  const [loadingVideos, setLoadingVideos] = useState(true);
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -60,22 +57,6 @@ export default function Dashboard() {
       }
     };
     fetchAppointments();
-  }, [childId]);
-
-  useEffect(() => {
-    const fetchVideos = async () => {
-      if (!childId) return;
-      try {
-        setLoadingVideos(true);
-        const res = await dailyAPI.getVideos(childId);
-        setVideos(res.data?.data || []);
-      } catch (err) {
-        console.error('Error fetching videos:', err);
-      } finally {
-        setLoadingVideos(false);
-      }
-    };
-    fetchVideos();
   }, [childId]);
 
   const isLoading = isLoadingToday || isLoadingProgress || isLoadingBalance || isLoadingChild;
@@ -368,91 +349,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Educational Videos */}
-      {videos.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-dark-900">Educational Videos</h2>
-              <p className="text-sm text-dark-500">
-                {videos.filter(v => v.is_completed).length} of {videos.length} watched
-              </p>
-            </div>
-            <Link
-              to={`/child/${childId}/videos`}
-              className="text-sm text-primary-600 hover:text-primary-700 flex items-center font-medium"
-            >
-              View all <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {videos.slice(0, 2).map((item) => (
-              <Link
-                key={item.video?.id}
-                to={`/child/${childId}/video/${item.video?.id}`}
-                className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group border border-cream-200"
-              >
-                <div className="relative aspect-video bg-cream-100">
-                  {item.video?.thumbnail_url ? (
-                    <img
-                      src={item.video.thumbnail_url}
-                      alt={item.video.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Play className="w-12 h-12 text-primary-300" />
-                    </div>
-                  )}
-
-                  {/* Play overlay */}
-                  <div className="absolute inset-0 bg-dark-900/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-white rounded-full p-3 shadow-lg">
-                      <Play className="w-6 h-6 text-primary-600" />
-                    </div>
-                  </div>
-
-                  {/* Completed badge */}
-                  {item.is_completed && (
-                    <div className="absolute top-2 right-2 bg-bloom-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Done
-                    </div>
-                  )}
-
-                  {/* Duration */}
-                  <div className="absolute bottom-2 right-2 bg-dark-900/80 text-white text-xs px-2 py-1 rounded">
-                    {item.video?.duration_formatted || '0:00'}
-                  </div>
-
-                  {/* Progress bar */}
-                  {item.progress_percentage > 0 && item.progress_percentage < 100 && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-dark-900/30">
-                      <div
-                        className="h-full bg-primary-500"
-                        style={{ width: `${item.progress_percentage}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-3">
-                  <h3 className="font-medium text-dark-900 line-clamp-1 text-sm">
-                    {item.video?.title}
-                  </h3>
-                  <div className="flex items-center justify-between mt-2 text-xs">
-                    <div className="flex items-center gap-1 text-dark-500">
-                      <Clock className="w-3 h-3" />
-                      {item.video?.duration_formatted}
-                    </div>
-                    <span className="text-amber-600 font-medium">+{item.video?.token_reward || 5} tokens</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Educational Videos - Hidden due to geo-restrictions in some regions */}
+      {/* Videos are still accessible via /child/:childId/videos for users who want them */}
 
       {/* Upcoming Appointments */}
       {appointments.length > 0 && (

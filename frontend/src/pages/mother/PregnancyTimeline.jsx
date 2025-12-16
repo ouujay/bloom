@@ -12,36 +12,39 @@ import {
   ArrowDown,
 } from 'lucide-react';
 
-// Beautiful pregnancy images
+// Beautiful pregnancy images from Unsplash (free to use)
 const journeyImages = [
-  'https://i.pinimg.com/736x/f4/49/f0/f449f0c95f40b603012b2cbbbed1de3d.jpg',
-  'https://i.pinimg.com/1200x/ac/93/ff/ac93ff8e889d79139d1049d1e5894e30.jpg',
-  'https://i.pinimg.com/1200x/1b/49/fc/1b49fc306f5464006953e424d7644462.jpg',
-  'https://i.pinimg.com/736x/d4/1b/cb/d41bcb1fc114b618b2724e3b9ffdd2b5.jpg',
+  'https://images.unsplash.com/photo-1710897869625-feacd81ed629?w=800&q=80', // Black pregnant woman portrait
+  'https://images.unsplash.com/photo-1570919887593-3555c02d7a74?w=600&q=80', // Mother holding belly
+  'https://images.unsplash.com/photo-1675034824692-62320f8de654?w=600&q=80', // Pregnant woman with flowers
+  'https://images.unsplash.com/photo-1639236301225-6080d79a7299?w=600&q=80', // Maternity window scene
 ];
 
-// Trimester data
+// Trimester data with matching images
 const TRIMESTERS = [
   {
     name: 'First Trimester',
     weeks: '1-12',
     color: 'primary',
     description: 'Your baby is forming all major organs. This is when the foundation is built.',
-    image: 'https://i.pinimg.com/1200x/1b/49/fc/1b49fc306f5464006953e424d7644462.jpg',
+    // Early pregnancy - beginning of the journey
+    image: 'https://images.unsplash.com/photo-1637182622799-76c3f005da25?w=800&q=80',
   },
   {
     name: 'Second Trimester',
     weeks: '13-27',
     color: 'bloom',
     description: 'Baby is growing rapidly and you can feel those magical first movements.',
-    image: 'https://i.pinimg.com/1200x/ac/93/ff/ac93ff8e889d79139d1049d1e5894e30.jpg',
+    // Growing belly with visible movements
+    image: 'https://images.unsplash.com/photo-1570919887593-3555c02d7a74?w=800&q=80',
   },
   {
     name: 'Third Trimester',
     weeks: '28-40',
     color: 'purple',
     description: 'Final preparations. Your baby is getting ready to meet you.',
-    image: 'https://i.pinimg.com/736x/f4/49/f0/f449f0c95f40b603012b2cbbbed1de3d.jpg',
+    // Full term, ready to meet baby
+    image: 'https://images.unsplash.com/photo-1710897869625-feacd81ed629?w=800&q=80',
   },
 ];
 

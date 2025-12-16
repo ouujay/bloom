@@ -284,8 +284,8 @@ export default function Dashboard() {
               </div>
               {!taskDone && (
                 <button
-                  onClick={() => completeTask(today.id)}
-                  disabled={isCompletingTask}
+                  onClick={() => completeTask(today?.id)}
+                  disabled={isCompletingTask || !today?.id}
                   className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   {isCompletingTask ? '...' : 'Done'}

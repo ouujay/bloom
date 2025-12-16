@@ -27,9 +27,11 @@ export default function VideoDetail() {
     try {
       setLoading(true);
       const res = await dailyAPI.getVideo(videoId);
-      setVideo(res.data?.data);
-      setIsCompleted(res.data?.data?.is_completed || false);
-      setWatchTime(res.data?.data?.watch_time_seconds || 0);
+      const data = res.data?.data;
+      // API returns { video: {...}, progress: {...} }
+      setVideo(data?.video);
+      setIsCompleted(data?.progress?.is_completed || false);
+      setWatchTime(data?.progress?.watch_time_seconds || 0);
     } catch (err) {
       toast.error('Failed to load video');
       navigate(`/child/${childId}/videos`);

@@ -29,6 +29,67 @@ def get_today(request, child_id):
     missed = DailyProgramService.get_missed_days(child)
     stage = result.get('stage', {})
 
+    # Get today's video task based on week and day
+    current_week = stage.get('week', 1) if stage else 1
+    current_day = result['content'].day
+
+    # Find a video for today (check for exact week+day match first, then week match)
+    daily_video = YouTubeLesson.objects.filter(
+        stage=result['content'].stage_type,
+        week=current_week,
+        day=current_day,
+        is_active=True
+    ).first()
+
+    # Fallback: get any video from this week
+    if not daily_video:
+        daily_video = YouTubeLesson.objects.filter(
+            stage=result['content'].stage_type,
+            week=current_week,
+            is_active=True
+        ).first()
+
+    # Fallback: get closest week's video
+    if not daily_video:
+        daily_video = YouTubeLesson.objects.filter(
+            stage=result['content'].stage_type,
+            week__lte=current_week,
+            is_active=True
+        ).order_by('-week').first()
+
+    # Check if video has been completed (which marks task as done)
+    video_completed = False
+    video_data = None
+    if daily_video:
+        video_progress = VideoProgress.objects.filter(
+            user=request.user,
+            video=daily_video
+        ).first()
+        video_completed = video_progress.is_completed if video_progress else False
+        # Use hqdefault thumbnail (always available) if thumbnail_url uses maxresdefault
+        thumbnail = daily_video.thumbnail_url
+        if thumbnail and 'maxresdefault' in thumbnail:
+            thumbnail = thumbnail.replace('maxresdefault', 'hqdefault')
+        elif not thumbnail:
+            thumbnail = f"https://i.ytimg.com/vi/{daily_video.youtube_id}/hqdefault.jpg"
+        video_data = {
+            'id': str(daily_video.id),
+            'youtube_id': daily_video.youtube_id,
+            'title': daily_video.title,
+            'description': daily_video.description,
+            'duration_seconds': daily_video.duration_seconds,
+            'thumbnail_url': thumbnail,
+            'key_points': daily_video.key_points,
+            'token_reward': daily_video.token_reward,
+            'is_completed': video_completed,
+        }
+
+    # Task is now watching the daily video
+    task_title = f"Watch: {daily_video.title}" if daily_video else result['content'].task_title
+    task_description = daily_video.description if daily_video else result['content'].task_description
+    task_completed = video_completed if daily_video else result['progress'].task_completed
+    task_tokens = daily_video.token_reward if daily_video else result['content'].task_tokens
+
     return Response({
         'success': True,
         'data': {
@@ -43,14 +104,18 @@ def get_today(request, child_id):
                 'tips': [result['content'].tip_of_day] if result['content'].tip_of_day else [],
             },
             'tasks': [{
-                'id': 'task-1',
-                'title': result['content'].task_title,
-                'description': result['content'].task_description,
-                'completed': result['progress'].task_completed,
-                'tokens': result['content'].task_tokens,
+                'id': str(daily_video.id) if daily_video else 'task-1',
+                'title': task_title,
+                'description': task_description,
+                'completed': task_completed,
+                'tokens': task_tokens,
+                'type': 'video' if daily_video else 'general',
+                'video': video_data,
             }],
+            'daily_video': video_data,
             'lesson_completed': result['progress'].lesson_completed,
             'checkin_completed': result['progress'].checkin_completed,
+            'task_completed': task_completed,
             'is_complete': result['progress'].is_completed,
             'has_missed_days': missed.exists(),
             'missed_count': missed.count(),
@@ -440,7 +505,7 @@ def get_video(request, video_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def complete_video(request, video_id):
-    """Mark a video as completed and award tokens."""
+    """Mark a video as completed and award tokens. Also marks daily task as complete."""
     video = get_object_or_404(YouTubeLesson, id=video_id, is_active=True)
 
     progress, created = VideoProgress.objects.get_or_create(
@@ -464,15 +529,40 @@ def complete_video(request, video_id):
     TokenService.award_tokens(
         user=request.user,
         amount=video.token_reward,
-        source='daily_lesson',
+        source='daily_task',
         reference_id=str(video.id),
         reference_type='youtube_lesson',
         description=f"Watched: {video.title}"
     )
 
-    # Log to passport
-    child = request.user.children.first()
+    # Log to passport and mark task as complete
+    child_id = request.data.get('child_id')
+    child = None
+    if child_id:
+        child = Child.objects.filter(id=child_id, user=request.user).first()
+    if not child:
+        child = request.user.children.first()
+
+    task_completed = False
+    day_progress_data = None
+
     if child:
+        # Mark the current day's task as complete
+        result = DailyProgramService.get_today_program(child)
+        if result:
+            day_progress = result['progress']
+            if not day_progress.task_completed:
+                day_progress.task_completed = True
+                day_progress.check_completion()
+                day_progress.save()
+
+                if day_progress.is_completed:
+                    DailyProgramService._on_day_completed(child, day_progress)
+
+                task_completed = True
+                day_progress_data = UserDayProgressSerializer(day_progress).data
+
+        # Log to passport
         PassportEvent.objects.create(
             child=child,
             event_type='lesson_completed',
@@ -486,6 +576,8 @@ def complete_video(request, video_id):
             'progress': VideoProgressSerializer(progress).data,
             'tokens_earned': video.token_reward,
             'new_balance': request.user.token_balance,
+            'task_completed': task_completed,
+            'day_progress': day_progress_data,
         }
     })
 

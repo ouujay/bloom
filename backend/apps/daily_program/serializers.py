@@ -43,6 +43,7 @@ class UserDayProgressSerializer(serializers.ModelSerializer):
 class YouTubeLessonSerializer(serializers.ModelSerializer):
     stage_display = serializers.CharField(source='get_stage_display', read_only=True)
     duration_formatted = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = YouTubeLesson
@@ -58,6 +59,14 @@ class YouTubeLessonSerializer(serializers.ModelSerializer):
         minutes = obj.duration_seconds // 60
         seconds = obj.duration_seconds % 60
         return f"{minutes}:{seconds:02d}"
+
+    def get_thumbnail_url(self, obj):
+        """Return reliable thumbnail URL using hqdefault (always available)."""
+        if obj.thumbnail_url and 'maxresdefault' in obj.thumbnail_url:
+            return obj.thumbnail_url.replace('maxresdefault', 'hqdefault')
+        elif not obj.thumbnail_url:
+            return f"https://i.ytimg.com/vi/{obj.youtube_id}/hqdefault.jpg"
+        return obj.thumbnail_url
 
 
 class VideoProgressSerializer(serializers.ModelSerializer):

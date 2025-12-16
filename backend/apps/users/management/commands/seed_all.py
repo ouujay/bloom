@@ -196,6 +196,14 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.WARNING(f'  Could not seed content: {e}'))
 
+        # Also seed YouTube videos
+        self.stdout.write('Seeding YouTube videos...')
+        try:
+            call_command('seed_videos', verbosity=0)
+            self.stdout.write('  YouTube videos seeded')
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'  Could not seed videos: {e}'))
+
     def seed_health_data(self):
         self.stdout.write('Creating health logs...')
 

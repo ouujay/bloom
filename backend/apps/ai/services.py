@@ -1,27 +1,35 @@
 import os
 import json
 import tempfile
+import requests
 from typing import Optional, Dict, List, Any
 from openai import OpenAI
 
 
 class AIService:
     """
-    Service for handling AI interactions using OpenAI.
-    - Whisper for Speech-to-Text
-    - GPT-4 for LLM responses
-    - TTS for Text-to-Speech
+    Service for handling AI interactions.
+    - OpenAI Whisper for Speech-to-Text
+    - Meta Llama 3.3 70B Turbo via Together AI for LLM responses
+    - OpenAI TTS for Text-to-Speech
     """
 
     def __init__(self):
-        api_key = os.getenv('OPENAI_API_KEY')
-        if not api_key:
+        # OpenAI client for Whisper and TTS
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        if not openai_api_key:
             raise ValueError("OPENAI_API_KEY environment variable not set")
-        self.openai_client = OpenAI(api_key=api_key)
+        self.openai_client = OpenAI(api_key=openai_api_key)
+
+        # Together AI for Llama 3.3
+        self.together_api_key = os.getenv('TOGETHER_API_KEY')
+        if not self.together_api_key:
+            raise ValueError("TOGETHER_API_KEY environment variable not set")
+        self.together_base_url = "https://api.together.xyz/v1"
 
         # Default model configurations
         self.whisper_model = "whisper-1"
-        self.chat_model = "gpt-4o-mini"  # Fast and affordable
+        self.chat_model = "meta-llama/Llama-3.3-70B-Instruct-Turbo"  # Llama 3.3 70B Turbo
         self.tts_model = "tts-1"
         self.tts_voice = "nova"  # Warm, friendly female voice
 
@@ -71,7 +79,7 @@ class AIService:
         max_tokens: int = 500
     ) -> str:
         """
-        Generate a response using OpenAI GPT.
+        Generate a response using Meta Llama 3.3 70B Turbo via Together AI.
 
         Args:
             messages: List of message dicts with 'role' and 'content'
@@ -86,16 +94,29 @@ class AIService:
             full_messages = [{"role": "system", "content": system_prompt}]
             full_messages.extend(messages)
 
-            response = self.openai_client.chat.completions.create(
-                model=self.chat_model,
-                messages=full_messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
+            response = requests.post(
+                f"{self.together_base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.together_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": self.chat_model,
+                    "messages": full_messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                }
             )
 
-            return response.choices[0].message.content
-        except Exception as e:
+            if response.status_code != 200:
+                raise Exception(f"Together AI API error: {response.status_code} - {response.text}")
+
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        except requests.RequestException as e:
             raise Exception(f"LLM generation failed: {str(e)}")
+        except (KeyError, IndexError) as e:
+            raise Exception(f"Invalid response from Together AI: {str(e)}")
 
     def text_to_speech(self, text: str) -> bytes:
         """
@@ -153,17 +174,28 @@ Important:
 """
 
         try:
-            response = self.openai_client.chat.completions.create(
-                model=self.chat_model,
-                messages=[
-                    {"role": "system", "content": "You are a data extraction assistant. Extract structured data from text and return only valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,  # Low temperature for accurate extraction
-                max_tokens=500,
+            response = requests.post(
+                f"{self.together_base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.together_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": self.chat_model,
+                    "messages": [
+                        {"role": "system", "content": "You are a data extraction assistant. Extract structured data from text and return only valid JSON."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.1,  # Low temperature for accurate extraction
+                    "max_tokens": 500,
+                }
             )
 
-            result_text = response.choices[0].message.content.strip()
+            if response.status_code != 200:
+                raise Exception(f"Together AI API error: {response.status_code}")
+
+            result = response.json()
+            result_text = result['choices'][0]['message']['content'].strip()
 
             # Clean up the response if it has markdown code blocks
             if result_text.startswith("```"):

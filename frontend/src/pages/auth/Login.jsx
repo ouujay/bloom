@@ -8,6 +8,7 @@ const DEMO_ACCOUNTS = [
   { label: 'Mother', email: 'demo@bloom.ng', password: 'demo1234' },
   { label: 'Admin', email: 'admin@bloom.ng', password: 'admin1234' },
   { label: 'Doctor', email: 'doctor@bloom.ng', password: 'doctor1234' },
+  { label: 'Hospital', email: 'lagoshospital@bloom.ng', password: 'password123' },
 ];
 
 export default function Login() {
@@ -20,14 +21,24 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/children';
-
-  // Redirect if already logged in
+  // Redirect if already logged in (on page load, not after login)
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(from, { replace: true });
+      // Redirect based on user role
+      if (user.is_admin) {
+        navigate('/admin', { replace: true });
+      } else if (user.is_doctor) {
+        navigate('/doctor', { replace: true });
+      } else if (user.user_type === 'organization') {
+        navigate('/organization', { replace: true });
+      } else if (!user.onboarding_complete) {
+        navigate('/onboarding', { replace: true });
+      } else {
+        const from = location.state?.from?.pathname || '/children';
+        navigate(from, { replace: true });
+      }
     }
-  }, [isAuthenticated, user, navigate, from]);
+  }, [isAuthenticated, user, navigate, location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,15 +46,25 @@ export default function Login() {
 
     try {
       const user = await login(email, password);
+      console.log('Login response user:', user);
+      console.log('is_admin:', user.is_admin);
       toast.success(`Welcome back, ${user.name}!`);
 
-      if (user.is_doctor) {
-        navigate('/doctor');
-      } else if (!user.onboarding_complete) {
-        navigate('/onboarding');
-      } else if (user.is_admin) {
+      // Admin, Doctor, and Organization get their own dashboards regardless of onboarding
+      if (user.is_admin) {
+        console.log('Redirecting to /admin');
         navigate('/admin');
+      } else if (user.is_doctor) {
+        console.log('Redirecting to /doctor');
+        navigate('/doctor');
+      } else if (user.user_type === 'organization') {
+        console.log('Redirecting to /organization');
+        navigate('/organization');
+      } else if (!user.onboarding_complete) {
+        console.log('Redirecting to /onboarding');
+        navigate('/onboarding');
       } else {
+        console.log('Redirecting to /children');
         navigate('/children');
       }
     } catch (err) {
@@ -166,8 +187,12 @@ export default function Login() {
           </p>
 
           <div className="mt-4 flex items-center justify-center gap-4 text-sm">
-            <Link to="/doctor/login" className="text-dark-500 hover:text-dark-700">
+            <Link to="/doctor/signup" className="text-dark-500 hover:text-dark-700">
               Doctor Portal
+            </Link>
+            <span className="text-dark-300">|</span>
+            <Link to="/organization/signup" className="text-dark-500 hover:text-dark-700">
+              Hospital Portal
             </Link>
             <span className="text-dark-300">|</span>
             <Link to="/donate" className="text-bloom-600 hover:text-bloom-700 font-medium">

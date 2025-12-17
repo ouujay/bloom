@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.db.models import Sum, Count
+from django.utils import timezone
 from .models import User, EmergencyContact, PreferredHospital
 from .serializers import (
     UserSerializer, SignupSerializer, LoginSerializer, OnboardingSerializer
@@ -258,8 +259,7 @@ def admin_stats(request):
             'message': 'Admin access required'
         }, status=status.HTTP_403_FORBIDDEN)
 
-    from apps.withdrawals.models import WithdrawalRequest
-    from apps.tokens.models import TokenTransaction
+    from apps.tokens.models import TokenTransaction, WithdrawalRequest
     from apps.daily_program.models import UserDayProgress
     from django.utils import timezone
 
@@ -269,11 +269,11 @@ def admin_stats(request):
         onboarding_complete=True
     ).count()
 
-    # Active today
+    # Active today (count unique users active today)
     today = timezone.now().date()
     active_today = UserDayProgress.objects.filter(
         started_at__date=today
-    ).values('user').distinct().count()
+    ).values('child__user').distinct().count()
 
     pending_withdrawals = WithdrawalRequest.objects.filter(
         status='pending'
@@ -347,16 +347,26 @@ def admin_users(request):
     users_data = []
 
     for u in users:
-        total_days = UserDayProgress.objects.filter(user=u).count()
-        completed_days = UserDayProgress.objects.filter(user=u, is_completed=True).count()
+        # Get progress across all children for this user
+        total_days = UserDayProgress.objects.filter(child__user=u).count()
+        completed_days = UserDayProgress.objects.filter(child__user=u, is_completed=True).count()
         progress_pct = int((completed_days / total_days * 100)) if total_days > 0 else 0
+
+        # Get current week from first active child
+        current_week = None
+        first_child = u.children.filter(is_active=True).first()
+        if first_child and first_child.due_date:
+            from datetime import date
+            days_pregnant = (first_child.due_date - date.today()).days
+            weeks_remaining = days_pregnant // 7
+            current_week = 40 - weeks_remaining if weeks_remaining <= 40 else 1
 
         users_data.append({
             'id': str(u.id),
             'name': f"{u.first_name} {u.last_name}".strip() or u.email,
             'email': u.email,
             'phone': u.phone,
-            'current_week': u.current_program_week,
+            'current_week': current_week,
             'progress_percentage': progress_pct,
             'token_balance': u.token_balance,
             'onboarding_complete': u.onboarding_complete,
@@ -366,4 +376,229 @@ def admin_users(request):
     return Response({
         'success': True,
         'data': users_data
+    })
+
+
+# ============ Organization Invitations (Mother-side) ============
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def org_invitations_list(request):
+    """List pending organization invitations for the mother"""
+    from apps.organizations.models import PatientInvitation
+    from apps.organizations.serializers import PatientInvitationSerializer
+
+    invitations = PatientInvitation.objects.filter(
+        patient=request.user,
+        status='pending'
+    ).select_related('organization', 'invited_by')
+
+    serializer = PatientInvitationSerializer(invitations, many=True)
+
+    return Response({
+        'success': True,
+        'data': {
+            'invitations': serializer.data,
+            'count': invitations.count()
+        }
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def org_invitation_accept(request, invitation_id):
+    """Accept an organization invitation and select children to share"""
+    from apps.organizations.models import PatientInvitation, OrganizationPatient
+    from apps.organizations.serializers import AcceptInvitationSerializer, OrganizationListSerializer
+    from apps.children.models import Child
+
+    try:
+        invitation = PatientInvitation.objects.get(
+            id=invitation_id,
+            patient=request.user,
+            status='pending'
+        )
+    except PatientInvitation.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Invitation not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate child_ids
+    serializer = AcceptInvitationSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    child_ids = serializer.validated_data['child_ids']
+
+    # Verify all children belong to the user
+    children = Child.objects.filter(
+        id__in=child_ids,
+        user=request.user,
+        is_active=True
+    )
+
+    if children.count() != len(child_ids):
+        return Response({
+            'success': False,
+            'message': 'One or more children not found or not yours'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Create the connection
+    patient_connection = OrganizationPatient.objects.create(
+        organization=invitation.organization,
+        patient=request.user
+    )
+    patient_connection.children.set(children)
+
+    # Update invitation status
+    invitation.status = 'accepted'
+    invitation.responded_at = timezone.now()
+    invitation.save()
+
+    return Response({
+        'success': True,
+        'message': f'Connected to {invitation.organization.name}',
+        'data': {
+            'organization': OrganizationListSerializer(invitation.organization).data,
+            'shared_children_count': children.count()
+        }
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def org_invitation_decline(request, invitation_id):
+    """Decline an organization invitation"""
+    from apps.organizations.models import PatientInvitation
+
+    try:
+        invitation = PatientInvitation.objects.get(
+            id=invitation_id,
+            patient=request.user,
+            status='pending'
+        )
+    except PatientInvitation.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Invitation not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    invitation.status = 'declined'
+    invitation.responded_at = timezone.now()
+    invitation.save()
+
+    return Response({
+        'success': True,
+        'message': 'Invitation declined'
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def connected_orgs_list(request):
+    """List organizations the mother is connected to"""
+    from apps.organizations.models import OrganizationPatient
+    from apps.organizations.serializers import OrganizationListSerializer, ChildSummarySerializer
+
+    connections = OrganizationPatient.objects.filter(
+        patient=request.user,
+        is_active=True
+    ).select_related('organization')
+
+    data = []
+    for conn in connections:
+        data.append({
+            'id': str(conn.id),
+            'organization': OrganizationListSerializer(conn.organization).data,
+            'shared_children': ChildSummarySerializer(conn.children.all(), many=True).data,
+            'connected_at': conn.connected_at.isoformat()
+        })
+
+    return Response({
+        'success': True,
+        'data': {'connections': data}
+    })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def connected_org_disconnect(request, connection_id):
+    """Disconnect from an organization"""
+    from apps.organizations.models import OrganizationPatient
+
+    try:
+        connection = OrganizationPatient.objects.get(
+            id=connection_id,
+            patient=request.user,
+            is_active=True
+        )
+    except OrganizationPatient.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Connection not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    connection.is_active = False
+    connection.save()
+
+    return Response({
+        'success': True,
+        'message': 'Disconnected from organization'
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def connected_org_update_children(request, connection_id):
+    """Update which children are shared with an organization"""
+    from apps.organizations.models import OrganizationPatient
+    from apps.organizations.serializers import UpdateSharedChildrenSerializer, ChildSummarySerializer
+    from apps.children.models import Child
+
+    try:
+        connection = OrganizationPatient.objects.get(
+            id=connection_id,
+            patient=request.user,
+            is_active=True
+        )
+    except OrganizationPatient.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Connection not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = UpdateSharedChildrenSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    child_ids = serializer.validated_data['child_ids']
+
+    # Verify all children belong to the user
+    children = Child.objects.filter(
+        id__in=child_ids,
+        user=request.user,
+        is_active=True
+    )
+
+    if children.count() != len(child_ids):
+        return Response({
+            'success': False,
+            'message': 'One or more children not found or not yours'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    connection.children.set(children)
+
+    return Response({
+        'success': True,
+        'message': 'Shared children updated',
+        'data': {
+            'shared_children': ChildSummarySerializer(children, many=True).data
+        }
     })

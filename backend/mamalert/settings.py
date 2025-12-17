@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.tokens",
     "apps.withdrawals",
     "apps.payments",
+    "apps.organizations",   # Healthcare organizations
     "apps.blockchain_api",  # Developer A - Blockchain integration
     "apps.sms_api",         # Developer A - SMS integration
 ]

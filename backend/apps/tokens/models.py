@@ -94,6 +94,8 @@ class TokenTransaction(models.Model):
     reference_id = models.UUIDField(null=True, blank=True)
     reference_type = models.CharField(max_length=50, blank=True)
     description = models.CharField(max_length=255)
+    blockchain_tx = models.CharField(max_length=100, blank=True, default='')
+    explorer_url = models.CharField(max_length=200, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

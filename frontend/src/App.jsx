@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 import AdminLayout from './components/layout/AdminLayout';
 import DoctorLayout from './components/layout/DoctorLayout';
+import OrganizationLayout from './components/layout/OrganizationLayout';
 
 // Pages
 import Landing from './pages/Landing';
@@ -46,14 +47,22 @@ import Donate from './pages/Donate';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminWithdrawals from './pages/admin/Withdrawals';
 import AdminUsers from './pages/admin/Users';
+import AdminDonations from './pages/admin/Donations';
 import TokenAdmin from './pages/admin/TokenAdmin';
 
 // Doctor pages
-import DoctorLogin from './pages/doctor/Login';
 import DoctorSignup from './pages/doctor/Signup';
 import DoctorDashboard from './pages/doctor/Dashboard';
 import DoctorReports from './pages/doctor/Reports';
 import DoctorReportDetail from './pages/doctor/ReportDetail';
+
+// Organization pages
+import OrganizationSignup from './pages/organization/Signup';
+import OrganizationDashboard from './pages/organization/Dashboard';
+import OrganizationPatients from './pages/organization/Patients';
+import OrganizationPatientDetail from './pages/organization/PatientDetail';
+import OrganizationReports from './pages/organization/Reports';
+import OrganizationInvitations from './pages/organization/Invitations';
 
 // Components
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -143,13 +152,14 @@ function App() {
               </ProtectedRoute>
             }>
               <Route index element={<AdminDashboard />} />
-              <Route path="withdrawals" element={<AdminWithdrawals />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="tokens" element={<TokenAdmin />} />
+              <Route path="donations" element={<AdminDonations />} />
+              <Route path="withdrawals" element={<AdminWithdrawals />} />
             </Route>
 
             {/* Doctor routes - public */}
-            <Route path="/doctor/login" element={<DoctorLogin />} />
+            <Route path="/doctor/login" element={<Navigate to="/login" />} />
             <Route path="/doctor/signup" element={<DoctorSignup />} />
 
             {/* Doctor routes - protected */}
@@ -161,6 +171,22 @@ function App() {
               <Route index element={<DoctorDashboard />} />
               <Route path="reports" element={<DoctorReports />} />
               <Route path="reports/:reportId" element={<DoctorReportDetail />} />
+            </Route>
+
+            {/* Organization routes - public */}
+            <Route path="/organization/signup" element={<OrganizationSignup />} />
+
+            {/* Organization routes - protected */}
+            <Route path="/organization" element={
+              <ProtectedRoute requireOrganization>
+                <OrganizationLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<OrganizationDashboard />} />
+              <Route path="patients" element={<OrganizationPatients />} />
+              <Route path="patients/:patientId" element={<OrganizationPatientDetail />} />
+              <Route path="reports" element={<OrganizationReports />} />
+              <Route path="invitations" element={<OrganizationInvitations />} />
             </Route>
 
             {/* Fallback */}

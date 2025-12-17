@@ -26,6 +26,8 @@ from .services import (
     get_system_prompt,
     get_data_schema,
     SYSTEM_PROMPTS,
+    create_health_report_from_ai,
+    extract_ai_analysis,
 )
 
 
@@ -313,6 +315,46 @@ def send_message(request):
         parsed_data=parsed_data or {},
     )
 
+    # Check for health concerns in the AI response and create health report if needed
+    # This applies to chat and health-related conversations
+    health_report_created = False
+    if conversation.conversation_type in ['chat', 'health_complaint', 'health_checkin'] and conversation.child:
+        try:
+            # Check if AI response contains health analysis JSON
+            analysis = extract_ai_analysis(response_text)
+
+            # Only create report if there's actual health concern (not just normal chat)
+            if analysis.get('urgency_level') and analysis.get('urgency_level') != 'normal':
+                # Build transcript from last few messages
+                recent_messages = conversation.get_messages_for_context(limit=6)
+                transcript = '\n'.join([f"{m['role'].upper()}: {m['content']}" for m in recent_messages])
+
+                report = create_health_report_from_ai(
+                    user=request.user,
+                    child=conversation.child,
+                    conversation_type=conversation.conversation_type,
+                    full_transcript=transcript,
+                    ai_final_response=response_text
+                )
+                health_report_created = True
+                logger.info(f"Health report created: {report.id} with urgency {report.urgency_level}")
+            elif analysis.get('symptoms') and len(analysis.get('symptoms', [])) > 0:
+                # Even normal urgency but with symptoms - create a report for tracking
+                recent_messages = conversation.get_messages_for_context(limit=6)
+                transcript = '\n'.join([f"{m['role'].upper()}: {m['content']}" for m in recent_messages])
+
+                report = create_health_report_from_ai(
+                    user=request.user,
+                    child=conversation.child,
+                    conversation_type=conversation.conversation_type,
+                    full_transcript=transcript,
+                    ai_final_response=response_text
+                )
+                health_report_created = True
+                logger.info(f"Health report created for symptoms tracking: {report.id}")
+        except Exception as e:
+            logger.error(f"Failed to create health report: {e}")
+
     # Don't mark conversation as complete here - let user confirm first
     # Just store the parsed data in the message for retrieval later
     # conversation.mark_complete(parsed_data) is called via completeConversation endpoint
@@ -332,6 +374,7 @@ def send_message(request):
             },
             'is_complete': is_complete,
             'parsed_data': parsed_data if is_complete else None,
+            'health_report_created': health_report_created,
         }
     })
 

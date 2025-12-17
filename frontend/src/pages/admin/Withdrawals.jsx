@@ -19,11 +19,11 @@ export default function AdminWithdrawals() {
 
   const { data: withdrawals, isLoading } = useQuery({
     queryKey: ['admin', 'withdrawals'],
-    queryFn: () => api.get('/admin/withdrawals/').then(res => res.data.data),
+    queryFn: () => api.get('/tokens/admin/withdrawals/pending/').then(res => res.data.data),
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id) => api.post(`/admin/withdrawals/${id}/approve/`),
+    mutationFn: (id) => api.post(`/tokens/admin/withdrawals/${id}/approve/`),
     onSuccess: () => {
       queryClient.invalidateQueries(['admin', 'withdrawals']);
       toast.success('Withdrawal approved!');
@@ -34,7 +34,7 @@ export default function AdminWithdrawals() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }) => api.post(`/admin/withdrawals/${id}/reject/`, { reason }),
+    mutationFn: ({ id, reason }) => api.post(`/tokens/admin/withdrawals/${id}/reject/`, { reason }),
     onSuccess: () => {
       queryClient.invalidateQueries(['admin', 'withdrawals']);
       toast.success('Withdrawal rejected');
@@ -71,13 +71,13 @@ export default function AdminWithdrawals() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Withdrawals</h1>
-        <p className="text-gray-600">Manage withdrawal requests</p>
+        <h1 className="text-2xl font-bold text-dark-900">Withdrawals</h1>
+        <p className="text-dark-600">Manage withdrawal requests</p>
       </div>
 
       {/* Pending */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-dark-900 mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5 text-yellow-500" />
           Pending Requests ({pendingWithdrawals.length})
         </h2>
@@ -89,16 +89,16 @@ export default function AdminWithdrawals() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <div>
-                      <p className="font-semibold text-gray-900">{w.user_name}</p>
-                      <p className="text-sm text-gray-500">{w.user_email}</p>
+                      <p className="font-semibold text-dark-900">{w.user_name}</p>
+                      <p className="text-sm text-dark-500">{w.user_email}</p>
                     </div>
                     <div className="text-sm">
-                      <p><span className="text-gray-500">Amount:</span> {w.amount} tokens (₦{w.amount * 10})</p>
-                      <p><span className="text-gray-500">Bank:</span> {w.bank_name}</p>
-                      <p><span className="text-gray-500">Account:</span> {w.account_number}</p>
-                      <p><span className="text-gray-500">Name:</span> {w.account_name}</p>
+                      <p><span className="text-dark-500">Amount:</span> <span className="font-bold text-purple-600">{w.token_amount || w.amount} tokens</span> (₦{(w.naira_amount || (w.amount * 10)).toLocaleString()})</p>
+                      <p><span className="text-dark-500">Bank:</span> {w.bank_name}</p>
+                      <p><span className="text-dark-500">Account:</span> {w.account_number}</p>
+                      <p><span className="text-dark-500">Name:</span> {w.account_name}</p>
                     </div>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-dark-400">
                       Requested {dayjs(w.created_at).format('MMM D, YYYY h:mm A')}
                     </p>
                   </div>
@@ -128,46 +128,46 @@ export default function AdminWithdrawals() {
           </div>
         ) : (
           <Card>
-            <p className="text-center text-gray-500 py-8">No pending withdrawals</p>
+            <p className="text-center text-dark-500 py-8">No pending withdrawals</p>
           </Card>
         )}
       </div>
 
       {/* Processed */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">History</h2>
+        <h2 className="text-lg font-semibold text-dark-900 mb-4">History</h2>
 
         {processedWithdrawals.length > 0 ? (
           <Card padding="none">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-cream-100 border-b border-cream-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">User</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Amount</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Bank Details</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-dark-500">User</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-dark-500">Amount</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-dark-500">Bank Details</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-dark-500">Status</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-dark-500">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-cream-200">
                 {processedWithdrawals.map((w) => (
-                  <tr key={w.id}>
+                  <tr key={w.id} className="hover:bg-cream-50">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{w.user_name}</p>
-                      <p className="text-sm text-gray-500">{w.user_email}</p>
+                      <p className="font-medium text-dark-900">{w.user_name}</p>
+                      <p className="text-sm text-dark-500">{w.user_email}</p>
                     </td>
-                    <td className="px-4 py-3 text-gray-900">{w.amount} tokens</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-dark-900">{w.token_amount || w.amount} tokens</td>
+                    <td className="px-4 py-3 text-sm text-dark-500">
                       {w.bank_name}<br />{w.account_number}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-full ${
-                        w.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        w.status === 'approved' || w.status === 'completed' ? 'bg-bloom-100 text-bloom-700' : 'bg-red-100 text-red-700'
                       }`}>
                         {w.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-dark-500">
                       {dayjs(w.processed_at || w.created_at).format('MMM D, YYYY')}
                     </td>
                   </tr>
@@ -177,7 +177,7 @@ export default function AdminWithdrawals() {
           </Card>
         ) : (
           <Card>
-            <p className="text-center text-gray-500 py-8">No processed withdrawals</p>
+            <p className="text-center text-dark-500 py-8">No processed withdrawals</p>
           </Card>
         )}
       </div>

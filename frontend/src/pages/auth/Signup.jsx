@@ -212,6 +212,15 @@ export default function Signup() {
               Sign in
             </Link>
           </p>
+
+          <div className="mt-6 pt-6 border-t border-cream-200">
+            <p className="text-center text-dark-500 text-sm">
+              Are you a healthcare provider?{' '}
+              <Link to="/doctor/signup" className="text-bloom-600 font-medium hover:text-bloom-700">
+                Register as a Doctor
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

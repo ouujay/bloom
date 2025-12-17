@@ -14,6 +14,7 @@ urlpatterns = [
     path("api/tokens/", include("apps.tokens.urls")),
     path("api/withdrawals/", include("apps.withdrawals.urls")),
     path("api/payments/", include("apps.payments.urls")),
+    path("api/organizations/", include("apps.organizations.urls")),  # Healthcare organizations
     path("api/", include("apps.blockchain_api.urls")),  # Developer A - Blockchain endpoints
     path("sms/", include("apps.sms_api.urls")),         # Developer A - SMS endpoints
 ]

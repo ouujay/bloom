@@ -123,7 +123,9 @@ python manage.py runserver
 
 ### AI Conversations
 - `POST /api/ai/conversation/start/` - Start conversation
-- `POST /api/ai/conversation/{id}/message/` - Send message (text or voice)
+- `POST /api/ai/conversation/message/` - Send message (text or voice)
+- `POST /api/ai/conversation/{id}/complete/` - Complete conversation
+- `POST /api/ai/transcribe/` - Transcribe audio to text
 
 ### Organizations
 - `POST /api/organizations/signup/` - Register organization

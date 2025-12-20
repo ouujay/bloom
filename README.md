@@ -53,7 +53,7 @@ Bloom bridges the gap between expecting mothers and healthcare facilities throug
 
 ## Demo
 
-Live demo: [bloom-ng.vercel.app](https://bloom-ng.vercel.app)
+Live demo: [bloom-sigma-lake.vercel.app](https://bloom-sigma-lake.vercel.app)
 
 ### Demo Accounts
 
